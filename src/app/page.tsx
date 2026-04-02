@@ -1,6 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+
+function CopyAddr({ addr, className = "" }: { addr: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(addr);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }, [addr]);
+  return (
+    <span
+      onClick={handleCopy}
+      title="Click to copy"
+      className={`cursor-pointer hover:text-[#9945FF] transition-colors font-mono truncate ${className}`}
+    >
+      {addr}
+      {copied && <span className="ml-2 text-green-400 text-xs font-sans">Copied</span>}
+    </span>
+  );
+}
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import {
@@ -190,11 +209,11 @@ function CheckTab() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-400">Address</span>
-                <span className="font-mono text-gray-200 truncate ml-4 max-w-[300px]">{result.address}</span>
+                <CopyAddr addr={result.address} className="text-gray-200 ml-4 max-w-[300px]" />
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Owner Program</span>
-                <span className="font-mono text-gray-200 truncate ml-4 max-w-[300px]">{result.owner}</span>
+                <CopyAddr addr={result.owner} className="text-gray-200 ml-4 max-w-[300px]" />
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Balance</span>
@@ -223,7 +242,7 @@ function CheckTab() {
               <div className="space-y-2">
                 {result.nonceAccounts.map((nonce, i) => (
                   <div key={i} className="bg-red-500/5 border border-red-900/50 rounded p-3 text-sm font-mono">
-                    <div className="text-red-300 truncate">{nonce.address}</div>
+                    <div><CopyAddr addr={nonce.address} className="text-red-300" /></div>
                     <div className="text-gray-500 text-xs mt-1">
                       {(nonce.lamports / 1e9).toFixed(4)} SOL
                     </div>
@@ -247,7 +266,7 @@ function CheckTab() {
                     <div className="space-y-2">
                       {member.nonces.map((nonce, j) => (
                         <div key={j} className="bg-red-500/5 rounded p-2 text-sm font-mono">
-                          <div className="text-red-300 truncate text-xs">{nonce.address}</div>
+                          <div><CopyAddr addr={nonce.address} className="text-red-300 text-xs" /></div>
                           <div className="text-gray-500 text-xs mt-1">
                             {(nonce.lamports / 1e9).toFixed(4)} SOL
                           </div>
@@ -367,9 +386,7 @@ function CreateTab() {
           <div className="bg-[#141414] border border-gray-800 rounded-lg p-5">
             <div className="flex justify-between text-sm mb-4">
               <span className="text-gray-400">Authority</span>
-              <span className="font-mono text-gray-200 truncate ml-4 max-w-[300px]">
-                {publicKey.toBase58()}
-              </span>
+              <CopyAddr addr={publicKey.toBase58()} className="text-gray-200 ml-4 max-w-[300px]" />
             </div>
             <button
               onClick={handleCreate}
@@ -579,9 +596,7 @@ function UseTab() {
           <div className="bg-[#141414] border border-gray-800 rounded-lg p-5">
             <div className="flex justify-between text-sm mb-4">
               <span className="text-gray-400">Authority</span>
-              <span className="font-mono text-gray-200 truncate ml-4 max-w-[300px]">
-                {publicKey.toBase58()}
-              </span>
+              <CopyAddr addr={publicKey.toBase58()} className="text-gray-200 ml-4 max-w-[300px]" />
             </div>
             <input
               type="text"
