@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+:root {
+  --accent: #9945FF;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --warning: #f59e0b;
+}
+
+body {
+  background: #0a0a0a;
+}
+
+.glow {
+  box-shadow: 0 0 20px rgba(153, 69, 255, 0.15);
+}
