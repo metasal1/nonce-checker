@@ -76,48 +76,55 @@ async function getSquadsSigners(address: string): Promise<string[]> {
 }
 
 async function findNonceAccounts(authority: string): Promise<NonceAccount[]> {
-  // Get all nonce accounts by looking for accounts owned by System Program
-  // with the specific nonce account data size (80 bytes)
-  // and matching authority
-  
   const results: NonceAccount[] = [];
+  const seen = new Set<string>();
   
   try {
-    // Method 1: getProgramAccounts with memcmp filter for authority
-    // Nonce account layout: 4 bytes version + 4 bytes state + 32 bytes authority + 32 bytes nonce
-    // Authority starts at offset 8
-    const accounts = await rpcCall("getProgramAccounts", [
-      SYSTEM_PROGRAM,
-      {
-        encoding: "base64",
-        filters: [
-          { dataSize: NONCE_ACCOUNT_SIZE },
-          { memcmp: { offset: 8, bytes: authority } },
-        ],
-      },
-    ]);
-
-    if (accounts && Array.isArray(accounts)) {
-      for (const acc of accounts) {
-        const data = Buffer.from(acc.account.data[0], "base64");
-        // Parse nonce account
-        // Version: 4 bytes, State: 4 bytes, Authority: 32 bytes, Nonce: 32 bytes
-        const state = data.readUInt32LE(4);
-        if (state === 1) {
-          // Initialized
-          const bs58Chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-          results.push({
-            address: acc.pubkey,
-            authority: authority,
-            nonce: `(nonce hash at offset 40)`,
-            lamports: acc.account.lamports,
-          });
+    // Scan recent transactions for NonceInitialize instructions
+    const sigs = await rpcCall("getSignaturesForAddress", [authority, { limit: 100 }]);
+    if (!sigs || !Array.isArray(sigs)) return results;
+    
+    for (const sig of sigs.slice(0, 50)) {
+      try {
+        const tx = await rpcCall("getTransaction", [sig.signature, { encoding: "jsonParsed", maxSupportedTransactionVersion: 0 }]);
+        if (!tx?.transaction?.message?.instructions) continue;
+        
+        for (const ix of tx.transaction.message.instructions) {
+          if (!ix.parsed) continue;
+          
+          const type = ix.parsed.type;
+          const info = ix.parsed.info || {};
+          
+          // Look for nonce initialization or advance
+          if (type === "initializeNonce" || type === "authorizeNonce" || type === "advanceNonce") {
+            const nonceAddr = info.nonceAccount;
+            if (!nonceAddr || seen.has(nonceAddr)) continue;
+            seen.add(nonceAddr);
+            
+            // Verify it still exists as a live nonce account
+            try {
+              const accInfo = await rpcCall("getAccountInfo", [nonceAddr, { encoding: "base64" }]);
+              if (accInfo?.value && accInfo.value.owner === SYSTEM_PROGRAM) {
+                const accData = Buffer.from(accInfo.value.data[0], "base64");
+                if (accData.length === NONCE_ACCOUNT_SIZE) {
+                  const state = accData.readUInt32LE(4);
+                  if (state === 1) {
+                    results.push({
+                      address: nonceAddr,
+                      authority: authority,
+                      nonce: `(initialized)`,
+                      lamports: accInfo.value.lamports,
+                    });
+                  }
+                }
+              }
+            } catch { /* nonce account may have been closed */ }
+          }
         }
-      }
+      } catch { /* skip failed tx fetch */ }
     }
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("Error finding nonce accounts:", msg);
+    console.error("findNonceAccounts error:", e instanceof Error ? e.message : String(e));
   }
 
   return results;
