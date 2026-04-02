@@ -13,14 +13,21 @@ interface NonceAccount {
   lamports: number;
 }
 
+interface MemberNonce {
+  member: string;
+  nonces: NonceAccount[];
+}
+
 interface CheckResult {
   address: string;
   owner: string;
   lamports: number;
   isMultisig: boolean;
+  signerCount?: number;
   isNonceAccount: boolean;
   nonceAuthority: string;
   nonceAccounts: NonceAccount[];
+  memberNonces: MemberNonce[];
   risks: Risk[];
   checkedAt: string;
   error?: string;
@@ -132,7 +139,7 @@ export default function Home() {
               <div className="flex justify-between">
                 <span className="text-gray-400">Multisig</span>
                 <span className={result.isMultisig ? "text-[#9945FF] font-semibold" : "text-gray-500"}>
-                  {result.isMultisig ? "Yes (Squads)" : "No"}
+                  {result.isMultisig ? `Yes (Squads, ${result.signerCount} signers)` : "No"}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -156,6 +163,34 @@ export default function Home() {
                     <div className="text-red-300 truncate">{nonce.address}</div>
                     <div className="text-gray-500 text-xs mt-1">
                       {(nonce.lamports / 1e9).toFixed(4)} SOL
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Member Nonces (CRITICAL) */}
+          {result.memberNonces.length > 0 && (
+            <div className="bg-[#141414] border border-red-700 rounded-lg p-5 bg-red-950/20">
+              <h2 className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-3">
+                Member Nonce Accounts ({result.memberNonces.reduce((sum, m) => sum + m.nonces.length, 0)})
+              </h2>
+              <div className="space-y-3">
+                {result.memberNonces.map((member, i) => (
+                  <div key={i} className="border border-red-900/50 rounded p-3">
+                    <div className="text-red-400 text-sm font-semibold mb-2">
+                      Signer: {member.member.slice(0, 8)}...
+                    </div>
+                    <div className="space-y-2">
+                      {member.nonces.map((nonce, j) => (
+                        <div key={j} className="bg-red-500/5 rounded p-2 text-sm font-mono">
+                          <div className="text-red-300 truncate text-xs">{nonce.address}</div>
+                          <div className="text-gray-500 text-xs mt-1">
+                            {(nonce.lamports / 1e9).toFixed(4)} SOL
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
